@@ -60,13 +60,14 @@ function DataProvider:getBatch()
       end
 
       self.pool:addjob(
-         function(idcs)
-            return threadDataset:getBatch(idcs)
+         function(idcs, split)
+            return threadDataset:getBatch(idcs, split)
          end,
          function(_batch_)
             batch = _batch_
          end,
-         idcs
+         idcs,
+         self.split
       )
    end
 
@@ -82,66 +83,24 @@ function DataProvider:reset()
    end
 end
 
-
-local function svhn(opt)
-   local function load(dataPath)
-      local loaded = torch.load(dataPath, 'ascii')
-      local data = loaded.X:transpose(3, 4)
-      local labels = loaded.y[1]
-      return data, labels
-   end
-
-   local trainData, trainLabels = load(
-      paths.concat(opt.dataDir, 'train_32x32.t7')
-   )
-   local extraData, extraLabels = load(
-      paths.concat(opt.dataDir, 'extra_32x32.t7')
-   )
-   local testData, testLabels = load(
-      paths.concat(opt.dataDir, 'test_32x32.t7')
-   )
-
-   local mean = {109.8820, 109.7119, 113.8176}
-   local std = {50.1148, 50.5717, 50.8523}
-
-   local trainDataset = datasets.ImageDataset(
-      torch.cat(trainData, extraData, 1), torch.cat(trainLabels, extraLabels), 3, 32, 32, mean, std,
-      nil, nil, nil, nil
-   )
-   local trainDataProvider = torch.DataProvider(
-      opt, trainDataset, 'train'
-   )
-
-   local testDataset = datasets.ImageDataset(
-      testData, testLabels, 3, 32, 32, mean, std,
-      nil, nil, nil, nil
-   )
-   local testDataProvider = torch.DataProvider(
-      opt, testDataset, 'test'
-   )
-
-   return trainDataProvider, testDataProvider
-end
-
-local function cifar(opt)
-   local cifar = torch.load(
+local function siftflow(opt)
+   local scene = torch.load(
       paths.concat(opt.dataDir, opt.dataset .. '.t7')
    )
 
-   local mean = {125.3069, 122.9504, 113.8654}
-   local std = {62.9932, 62.0887, 66.7049}
+   local mean = {128, 128, 128}
 
-   local trainDataset = datasets.ImageDataset(
-      cifar.train.data, cifar.train.labels, 3, 32, 32, mean, std,
-      nil, true, nil, 4
+   local trainDataset = datasets.SceneDataset(
+      scene.train.data, scene.train.labels, 3, 256, 256, mean, nil,
+      true, {0.5, 1.5, 0.5, 1.5}
    )
    local trainDataProvider = torch.DataProvider(
       opt, trainDataset, 'train'
    )
 
-   local testDataset = datasets.ImageDataset(
-      cifar.val.data, cifar.val.labels, 3, 32, 32, mean, std,
-      nil, nil, nil, nil
+   local testDataset = datasets.SceneDataset(
+      scene.test.data, scene.test.labels, 3, 256, 256, mean, nil,
+      nil, nil
    )
    local testDataProvider = torch.DataProvider(
       opt, testDataset, 'test'
@@ -149,71 +108,10 @@ local function cifar(opt)
 
    return trainDataProvider, testDataProvider
 end
-
-local function ucf101(opt)
---[[   local function load(dataPath, labelPath)
-      local dataFile = torch.DiskFile(dataPath, 'r', true)
-      local data = string.split(dataFile:readString('*a'), '\n')
-      dataFile:close()
-      for i = 1, #data do
-         data[i] = string.split(data[i], ',')
-      end
-
-      local labelFile = torch.DiskFile(labelPath, 'r', true)
-      local labels = string.split(labelFile:readString('*a'), '\n')
-      labelFile:close()
-      for i = 1, #labels do
-         labels[i] = tonumber(labels[i])
-      end
-
-      return data, labels
-   end
-
-   local trainData, trainLabels = load(
-      paths.concat(opt.dataDir, 'ucf_data_train1'),
-      paths.concat(opt.dataDir, 'ucf_label_train1')
-   )
-   local testData, testLabels = load(
-      paths.concat(opt.dataDir, 'ucf_data_test1'),
-      paths.concat(opt.dataDir, 'ucf_label_test1')
-   )
-]]
-local dataset = torch.load(paths.concat(opt.dataDir, opt.dataset .. '.t7'))
-local trainData, trainLabels, testData, testLabels = dataset.train.data, dataset.train.labels, dataset.test.data, dataset.test.labels
-
-   local mean =  {0.485 * 255, 0.456 * 255, 0.406 * 255}
-   local std = {0.229 * 255, 0.224 * 255, 0.225 * 255}
-   local trainDataset = datasets.VideoDataset(
-      trainData, trainLabels, 3, opt.clipSize or 1, 224, 224, mean, std,
-      'corner', true, nil, nil, nil, nil
-   )
-   local trainDataProvider = torch.DataProvider(
-      opt, trainDataset, 'train'
-   )
-
-   local testDataset = datasets.VideoDataset(
-      testData, testLabels, 3, opt.clipSize or 1, 224, 224, mean, std,
-      'center', false, nil, nil, nil, nil
-   )
-   local testDataProvider = torch.DataProvider(
-      opt, testDataset, 'test'
-   )
-   return trainDataProvider, testDataProvider
-end
-
-   
 
 local function getDataProvider(opt)
-   if opt.dataset == 'svhn' then
-      return svhn(opt)
-   end
-
-   if opt.dataset == 'cifar10' or opt.dataset == 'cifar100' then
-      return cifar(opt)
-   end
-
-   if opt.dataset == 'ucf101' then
-      return ucf101(opt)
+   if opt.dataset == 'siftflow' then
+      return siftflow(opt)
    end
 end
 
