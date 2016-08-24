@@ -51,13 +51,13 @@ function TrainNet:trainClassify(lr, dataProvider, chunkSize)
       local batch = dataProvider:getBatch()
       self:loadBatch(batch)
 
-      local output = self.model:forward(self.input):float()
+      local output = self.model:forward({self.input, self.mask}):float()
       local loss = self.criterion:forward(self.model.output, self.target)
 
       self.model:zeroGradParameters()
 
       self.criterion:backward(self.model.output, self.target)
-      self.model:backward(self.input, self.criterion.gradInput)
+      self.model:backward({self.input, self.mask}, self.criterion.gradInput)
 
       optim.sgd(opFunc, params, self.optimState)
 
@@ -81,25 +81,25 @@ function TrainNet:testClassify(dataProvider, chunkSize)
    local N = torch.ceil(chunkSize / dataProvider.batchSize)
    local mod = chunkSize - (N - 1) * dataProvider.batchSize
    local nError = 0
+   local total = 0
 
    for n = 1, N do
-      local batch = dataProvider:getBatch()
+      local batch
+      if n < N then
+         batch = dataProvider:getBatch()
+      else 
+         batch = dataProvider:getBatch(mod)
+      end
       self:loadBatch(batch)
 
-      local output = self.model:forward(self.input):float()
+      local output = self.model:forward({self.input, self.mask}):float()
 
-      if n < N then
-         nError = nError + top1Error(output, batch.labels)
-      else
-         nError = nError + top1Error(
-            output[{{1, mod}, {}}],
-            batch.labels[{{1, mod}}]
-         )
-      end
+      nError = nError + top1Error(output, batch.labels)
+      total = total + batch.labels:size(1)
    end
    self.model:training()
 
-   local errorRate = nError / chunkSize
+   local errorRate = nError / total
    local t = timer:time().real
    return errorRate, t
 end
@@ -108,9 +108,11 @@ function TrainNet:loadBatch(batch)
    self.input = self.input or (self.nGPU == 1
       and torch.CudaTensor()
       or cutorch.createCudaHostTensor())
+   self.mask = self.mask or torch.CudaTensor()
    self.target = self.target or torch.CudaTensor()
 
    self.input:resize(batch.samples:size()):copy(batch.samples)
+   self.mask:resize(batch.mask:size()):copy(batch.masks)
    self.target:resize(batch.labels:size()):copy(batch.labels)
 end
 
