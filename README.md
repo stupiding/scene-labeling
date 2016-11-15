@@ -1,4 +1,6 @@
-This project prvides the Torch solution for the paper [Convolutional Neural Networks with Intra-Layer Recurrent Connections for Scene Labeling](http://xlhu.cn/papers/Liang15-nips.pdf). The code is heavily inspired by [facebook/fb.resnet.torch](https://github.com/facebook/fb.resnet.torch).
+This code is still under test and modification. If you are interested in the model, you may also visit (https://github.com/stupiding/rcnn), which implements an essentially same model for image classification.
+
+The project aims to providing the Torch solution for the paper [Convolutional Neural Networks with Intra-Layer Recurrent Connections for Scene Labeling](http://xlhu.cn/papers/Liang15-nips.pdf). The code is modified from [facebook/fb.resnet.torch](https://github.com/facebook/fb.resnet.torch).
 
 #Requirements
 
